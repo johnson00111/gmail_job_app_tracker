@@ -1,7 +1,18 @@
 """
 llm/prompts.py
-System prompts for email classification and analysis.
+All prompts for Gmail JobTracker in one place.
+
+This is the single file to edit when tuning LLM behavior:
+- SYSTEM_PROMPT          → email classification
+- build_user_prompt()    → email content formatting
+- CHAT_SYSTEM_PROMPT     → AI Chat persona and rules
+- build_chat_context()   → inject application data into chat
 """
+
+
+# ============================================================
+# Email Classification Prompts
+# ============================================================
 
 SYSTEM_PROMPT = """You are a job application email classifier. Analyze the email and return ONLY a valid JSON object with no other text, no markdown, no backticks.
 
@@ -42,7 +53,7 @@ Rules:
 
 
 def build_user_prompt(email: dict) -> str:
-    """Build the user message from an email dict."""
+    """Build the user message from an email dict for classification."""
     return f"""Analyze this email:
 
 From: {email.get("sender", "")}
@@ -53,3 +64,49 @@ Labels: {email.get("labels", "")}
 
 Body (first 2000 chars):
 {(email.get("body", "") or email.get("snippet", ""))[:2000]}"""
+
+
+# ============================================================
+# AI Chat Prompts
+# ============================================================
+
+CHAT_SYSTEM_PROMPT = """You are a helpful job search assistant for a graduate student.
+Give concise, actionable advice. Keep responses under 150 words.
+Be encouraging but realistic."""
+
+
+def build_chat_context(apps: list, stats: dict) -> str:
+    """
+    Build the system message for AI Chat by injecting application data.
+
+    Args:
+        apps: list of application dicts from get_all_applications()
+        stats: dict from get_stats()
+
+    Returns:
+        Full system prompt string with data context.
+    """
+    status_counts = {}
+    companies = set()
+    roles = set()
+
+    for a in apps:
+        s = a.get("current_status", "unknown")
+        status_counts[s] = status_counts.get(s, 0) + 1
+        if a.get("company"):
+            companies.add(a["company"])
+        if a.get("role"):
+            roles.add(a["role"])
+
+    data_context = (
+        f"Here is their current application data:\n"
+        f"- Total applications: {len(apps)}\n"
+        f"- Status breakdown: {status_counts}\n"
+        f"- Companies: {', '.join(sorted(companies)[:20])}"
+        f"{'...' if len(companies) > 20 else ''}\n"
+        f"- Roles: {', '.join(sorted(roles)[:15])}"
+        f"{'...' if len(roles) > 15 else ''}\n"
+        f"- Stats: {stats}"
+    )
+
+    return f"{CHAT_SYSTEM_PROMPT}\n\n{data_context}"

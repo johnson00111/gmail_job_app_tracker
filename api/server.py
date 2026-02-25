@@ -32,6 +32,7 @@ from db.database import (
 )
 from gmail.fetcher import fetch_emails
 from llm.analyzer import analyze_all
+from llm.prompts import build_chat_context
 
 # Initialize
 init_db()
@@ -116,31 +117,7 @@ def api_chat(req: ChatRequest):
     """Chat with Ollama using application data as context."""
     apps = get_all_applications()
     stats = get_stats()
-
-    status_counts = {}
-    companies = set()
-    roles = set()
-    for a in apps:
-        s = a.get("current_status", "unknown")
-        status_counts[s] = status_counts.get(s, 0) + 1
-        if a.get("company"):
-            companies.add(a["company"])
-        if a.get("role"):
-            roles.add(a["role"])
-
-    context = (
-        f"You are a helpful job search assistant for a graduate student. "
-        f"Here is their current application data:\n"
-        f"- Total applications: {len(apps)}\n"
-        f"- Status breakdown: {status_counts}\n"
-        f"- Companies: {', '.join(sorted(companies)[:20])}"
-        f"{'...' if len(companies) > 20 else ''}\n"
-        f"- Roles: {', '.join(sorted(roles)[:15])}"
-        f"{'...' if len(roles) > 15 else ''}\n"
-        f"- Stats: {stats}\n\n"
-        f"Give concise, actionable advice. Keep responses under 150 words. "
-        f"Be encouraging but realistic."
-    )
+    context = build_chat_context(apps, stats)
 
     try:
         resp = httpx.post(
