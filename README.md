@@ -1,42 +1,37 @@
 # Gmail JobTracker
 
 <p align="center">
-  <img src="https://i.imgur.com/3ZOTxcn.png" alt="Gmail JobTracker Logo" width="180" />
+  <img src="https://i.imgur.com/3ZOTxcn.png" alt="Gmail JobTracker Logo" width="200">
 </p>
 
-**Gmail x Ollama -- Automated job application tracking and insights**
-
-Gmail JobTracker automatically fetches job-related emails from Gmail, classifies them using a local LLM (Ollama), and presents everything in a React dashboard with AI-powered insights.
-
----
-
-## Features
-
-- **Gmail Integration** -- OAuth2 readonly access to fetch job-related emails automatically
-- **LLM Classification** -- Local Ollama (qwen3:8b) analyzes and categorizes 13 types of job emails
-- **Interactive Dashboard** -- Amber-themed glass UI with animated stats, SVG Sankey funnel, weekly trend bars
-- **AI Chat** -- Ask questions about your applications, powered by Ollama with full application context
-- **Smart Filtering** -- Filter by company, role, time range (7D / 30D / custom)
-- **Expandable Table** -- Click any application to see AI-generated summaries
-- **Action Items** -- Surface urgent to-dos like OA deadlines and interview scheduling
+A full-stack application that automatically fetches job-related emails from Gmail, classifies them using a local LLM (Ollama), and presents insights through an interactive React dashboard.
 
 ---
 
 ## Architecture
 
 ```
-React (Vite)  <-->  FastAPI  <-->  SQLite + Ollama (qwen3:8b)
-                                       |
-                                   Gmail API
+Gmail API  -->  FastAPI Backend  -->  Ollama (qwen3:8b)  -->  SQLite
+                     |
+               React Dashboard
 ```
 
-| Layer    | Tech                | Purpose                          |
-|----------|---------------------|----------------------------------|
-| Frontend | React + Vite        | Dashboard UI                     |
-| Backend  | FastAPI             | REST API                         |
-| Database | SQLite              | Email and application storage    |
-| LLM      | Ollama (qwen3:8b)   | Email classification + AI chat   |
-| Email    | Gmail API (readonly) | Fetch job emails                |
+- **Backend:** FastAPI + SQLite + Ollama
+- **Frontend:** React (Vite) with warm-orange glass UI theme
+- **LLM:** Local Ollama running qwen3:8b for email classification and AI chat
+- **Database:** SQLite with 4 tables (emails, analyses, applications, application_emails) and 2 views
+
+---
+
+## Features
+
+- **Automated Email Fetching** -- Gmail API with configurable search queries, ATS sender matching (Greenhouse, Lever, Workday, etc.), and noise filtering
+- **LLM-Powered Classification** -- 13 email types (application confirm, rejection, interview invite, offer, action needed, recruiter outreach, etc.)
+- **Interactive Dashboard** -- Stats cards, Sankey funnel, weekly trend chart, role breakdown, and expandable application table
+- **AI Chat Assistant** -- Chat with Ollama using your application data as context for personalized job search advice
+- **Sync with Date Filters** -- Sync panel in the UI to specify date range and max emails before fetching
+- **Action Items** -- Toggleable checklist with pending/completed sections for items that need your attention
+- **Application Detail** -- Expandable rows showing original email subjects linked to each application
 
 ---
 
@@ -44,178 +39,161 @@ React (Vite)  <-->  FastAPI  <-->  SQLite + Ollama (qwen3:8b)
 
 ```
 gmail-jobtracker/
-├── api/
-│   └── server.py                   # FastAPI endpoints
-├── db/
-│   └── database.py                 # SQLite schema + CRUD
-├── gmail/
-│   ├── auth.py                     # Gmail OAuth2 authentication
-│   └── fetcher.py                  # Fetch and store emails
-├── llm/
-│   ├── prompts.py                  # LLM prompt templates
-│   └── analyzer.py                 # Ollama classification pipeline
-├── frontend/
-│   ├── src/
-│   │   ├── api/client.js           # API fetch wrapper
-│   │   ├── components/
-│   │   │   ├── ui.jsx              # Shared: GlassCard, AnimNum, constants
-│   │   │   ├── StatsCards.jsx      # 4 animated stat cards
-│   │   │   ├── SankeyFunnel.jsx    # SVG Sankey flow diagram
-│   │   │   ├── WeeklyTrend.jsx     # Bar chart with hover effects
-│   │   │   ├── ActionItems.jsx     # Urgent items + By Role breakdown
-│   │   │   ├── ApplicationTable.jsx  # Expandable application table
-│   │   │   └── AiInsight.jsx       # Ollama chat interface
-│   │   ├── styles/theme.css        # Light amber theme
-│   │   ├── App.jsx                 # Main layout, filters, data fetching
-│   │   └── main.jsx
-│   └── package.json
-├── requirements.txt
-└── README.md
+  config.py              # Centralized configuration (DB, Gmail, Ollama, CORS)
+  main.py                # CLI entry point (--sync, --serve, --after, --before, --max)
+  setup.sh               # One-time install script
+  start.sh               # Launch backend + frontend together
+  db/
+    database.py           # SQLite schema, CRUD, migrations
+  gmail/
+    auth.py               # Google OAuth 2.0 (readonly scope)
+    fetcher.py            # Fetch and store emails
+  llm/
+    prompts.py            # All prompts in one place (classification + chat)
+    analyzer.py           # Ollama integration for email analysis
+  api/
+    server.py             # FastAPI endpoints
+  frontend/
+    src/
+      App.jsx             # Main layout + sync panel + filters
+      api/client.js       # API wrapper functions
+      components/
+        ui.jsx            # Shared UI primitives and theme constants
+        StatsCards.jsx     # Animated stat cards
+        SankeyFunnel.jsx   # SVG Sankey diagram
+        WeeklyTrend.jsx    # Weekly bar chart
+        ActionItems.jsx    # Toggleable action items + role breakdown
+        ApplicationTable.jsx  # Expandable application table with email detail
+        AiInsight.jsx      # Ollama chat interface
+      styles/
+        theme.css          # Light warm-orange theme + background orbs
 ```
 
 ---
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.9+
 - Node.js 18+
-- Ollama installed with the `qwen3:8b` model (https://ollama.ai/)
-- Gmail API credentials (`credentials.json`)
+- Ollama installed with qwen3:8b model
+- Google Cloud project with Gmail API enabled and OAuth credentials
 
----
-
-### 1. Clone and Setup Backend
+### Setup
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/gmail-jobtracker.git
 cd gmail-jobtracker
 
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+# Place your Google OAuth credentials file in the project root
+cp /path/to/credentials.json .
 
----
-
-### 2. Gmail API Setup
-
-1. Go to Google Cloud Console (https://console.cloud.google.com/)
-2. Create a project, then enable the Gmail API
-3. Create OAuth 2.0 credentials and download as `credentials.json`
-4. Place `credentials.json` in the project root
-
----
-
-### 3. Pull Ollama Model
-
-```bash
+# Pull the Ollama model
 ollama pull qwen3:8b
+
+# Run setup (creates venv, installs Python + Node dependencies, runs checks)
+chmod +x setup.sh start.sh
+./setup.sh
+```
+
+### Run
+
+```bash
+# Start everything (backend + frontend)
+./start.sh
+
+# Or with sync first (fetch + analyze, then start)
+./start.sh --sync
+
+# Sync a specific date range
+./start.sh --sync --after 2026/02/01 --before 2026/02/28 --max 200
+```
+
+Open http://localhost:5173 to view the dashboard.
+
+### CLI Usage
+
+```bash
+# Full pipeline: fetch -> analyze -> start server
+python main.py
+
+# API server only (no fetch/analyze)
+python main.py --serve
+
+# Fetch + analyze only (no server)
+python main.py --sync
+
+# With date filters
+python main.py --sync --after 2026/02/01 --before 2026/02/15 --max 50
 ```
 
 ---
 
-### 4. Setup Frontend
+## API Endpoints
 
-```bash
-cd frontend
-npm install
-```
-
----
-
-### 5. Run Everything
-
-Terminal 1 -- Ollama (if not already running):
-
-```bash
-ollama serve
-```
-
-Terminal 2 -- FastAPI backend:
-
-```bash
-cd gmail-jobtracker
-source venv/bin/activate
-uvicorn api.server:app --reload --port 8000
-```
-
-Terminal 3 -- React frontend:
-
-```bash
-cd gmail-jobtracker/frontend
-npm run dev
-```
-
-Open http://localhost:5173
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/applications | All applications (dashboard view) |
+| GET | /api/applications/{id}/emails | Emails linked to an application |
+| GET | /api/stats | Aggregated dashboard stats |
+| GET | /api/weekly | Weekly application trend |
+| GET | /api/roles | Applications by role |
+| GET | /api/emails | All job-related emails |
+| POST | /api/sync | Fetch + analyze with date filters |
+| POST | /api/chat | AI chat with application context |
+| POST | /api/analyze | Analyze unprocessed emails |
+| PATCH | /api/applications/{id}/action-done | Toggle action item completion |
 
 ---
 
-### 6. First Sync
+## Configuration
 
-Click "Sync Now" in the dashboard, or manually:
+All settings are centralized in `config.py` with environment variable overrides:
 
-```bash
-# Fetch emails from Gmail
-python3 -m gmail.fetcher
-
-# Analyze with LLM
-python3 -m llm.analyzer
-```
+| Variable | Env Override | Default |
+|----------|-------------|---------|
+| DB_PATH | JT_DB_PATH | tracker.db |
+| OLLAMA_BASE_URL | JT_OLLAMA_URL | http://localhost:11434 |
+| OLLAMA_MODEL | JT_OLLAMA_MODEL | qwen3:8b |
+| API_HOST | JT_API_HOST | 0.0.0.0 |
+| API_PORT | JT_API_PORT | 8000 |
 
 ---
 
-## Screenshots
+## Prompt Engineering
 
-<!-- TODO: Add screenshots -->
+All LLM prompts are consolidated in `llm/prompts.py` for easy iteration:
+
+| Prompt | Purpose |
+|--------|---------|
+| SYSTEM_PROMPT | Email classification instructions and JSON schema |
+| build_user_prompt() | Formats email content for classification |
+| CHAT_SYSTEM_PROMPT | AI chat assistant persona and rules |
+| build_chat_context() | Injects application data into chat context |
 
 ---
 
 ## Known Issues and Roadmap
 
-### Known Issues
+### To Do
 
-- **Role normalization** -- Similar role titles (e.g. "Software Engineering Intern", "SWE Intern", "Software Engineer Intern") are not aggregated. Needs NLP-based or rule-based role grouping.
+- Role normalization -- aggregate similar titles (e.g. "SWE Intern" and "Software Engineering Intern")
+- Upsert matching improvement -- emails with role=None not merging correctly when company has multiple roles (revisit after role normalization)
 
-- **Timestamps use crawl time** -- `first_seen` and `last_updated` currently store the time emails were processed, not the actual email received date (`internalDate` from Gmail API). Weekly Trend and sorting are affected.
+### Not Planned
 
-- **Action Items not dismissible** -- No way to mark action items as completed from the dashboard.
-
-- **Application detail lacks email subject** -- The expanded table row should show the original email subject line for easy reference back to Gmail.
-
-### Roadmap
-
-- Fix timestamps to use Gmail `internalDate`
-- Add role normalization (group similar titles)
-- Add "Mark as done" for action items
-- Show email subjects in application detail view
-- Add `config.py` for centralized settings
-- Add `main.py` pipeline entry point
-- Docker Compose for one-command setup
-- Export to CSV / PDF
+- Docker Compose
+- CSV/PDF export
 
 ---
 
-## Tech Details
+## Tech Stack
 
-- **Python**: 3.9 (uses `from __future__ import annotations`)
-- **Gmail API**: `gmail.readonly` scope -- cannot modify or delete emails
-- **Ollama**: Runs locally on `localhost:11434`
-- **Database**: SQLite with 4 tables (`emails`, `analyses`, `applications`, `application_emails`) and 2 views (`job_emails`, `dashboard`)
-
----
-
-## Privacy
-
-All data stays local. Emails are processed by a local LLM -- nothing is sent to external APIs.
-
-The following files are excluded from version control:
-
-- `credentials.json` -- Google OAuth credentials
-- `token.json` -- Gmail access token
-- `tracker.db` -- SQLite database with email data
-- `data/` -- Raw email exports
+- **Frontend:** React 18, Vite, custom CSS (no UI framework)
+- **Backend:** FastAPI, SQLite, Python 3.9
+- **LLM:** Ollama (qwen3:8b) running locally
+- **Auth:** Google OAuth 2.0 (gmail.readonly scope)
 
 ---
 
