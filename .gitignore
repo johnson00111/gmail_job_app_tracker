@@ -10,3 +10,4 @@ node_modules/
 frontend/node_modules/
 .env
 *.db
+run.sh
