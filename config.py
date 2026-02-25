@@ -21,11 +21,23 @@ GMAIL_TOKEN_PATH = os.getenv("JT_GMAIL_TOKEN", "token.json")
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 GMAIL_OAUTH_PORT = 8080
 
-# Default search query for fetching job-related emails
-GMAIL_DEFAULT_QUERY = (
-    "subject:(application OR applied OR interview OR offer "
-    "OR reject OR thank) after:2026/02/01"
+# Search keywords (full-body search, no subject: prefix for high recall)
+# LLM handles false-positive filtering downstream
+GMAIL_SEARCH_KEYWORDS = (
+    "{(application OR applied OR interview OR offer OR reject OR thank "
+    'OR "submission" OR "received your" OR "candidacy" OR "next steps" '
+    'OR "confirmation" OR "coding challenge" OR "assessment" '
+    'OR "position" OR "opportunity" OR "interest in") '
+    "OR from:(greenhouse OR lever OR workday OR ashby OR smartrecruiters "
+    "OR hackerrank OR indeed OR breezy)} "
+    '-{subject:("job alert" OR "security code" OR "password" '
+    'OR "verify" OR "account" OR "newsletter")}'
 )
+
+# Default: search from Feb 2026 onward
+GMAIL_DEFAULT_AFTER = "2026/02/01"
+GMAIL_DEFAULT_QUERY = f"{GMAIL_SEARCH_KEYWORDS} after:{GMAIL_DEFAULT_AFTER}"
+
 GMAIL_DEFAULT_MAX_RESULTS = 100
 GMAIL_BODY_MAX_LENGTH = 5000  # truncate email body to avoid huge DB rows
 

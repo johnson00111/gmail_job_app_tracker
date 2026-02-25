@@ -14,6 +14,7 @@ from config import (
     CORS_ORIGINS,
     GMAIL_DEFAULT_MAX_RESULTS,
     GMAIL_DEFAULT_QUERY,
+    GMAIL_SEARCH_KEYWORDS,
     LLM_NUM_PREDICT_CHAT,
     LLM_TIMEOUT_CHAT,
     OLLAMA_CHAT_URL,
@@ -52,14 +53,10 @@ def build_query(after: str = None, before: str = None) -> str:
     Build Gmail search query with optional date filters.
     Date format from frontend: YYYY-MM-DD → converted to YYYY/MM/DD for Gmail.
     """
-    base_keywords = (
-        "subject:(application OR applied OR interview OR offer OR reject OR thank)"
-    )
-
     if not after and not before:
         return GMAIL_DEFAULT_QUERY
 
-    parts = [base_keywords]
+    parts = [GMAIL_SEARCH_KEYWORDS]
     if after:
         parts.append(f"after:{after.replace('-', '/')}")
     if before:

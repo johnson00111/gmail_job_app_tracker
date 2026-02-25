@@ -21,26 +21,20 @@ from config import (
     API_PORT,
     GMAIL_DEFAULT_MAX_RESULTS,
     GMAIL_DEFAULT_QUERY,
+    GMAIL_SEARCH_KEYWORDS,
 )
 
 
 def build_query(after: str = None, before: str = None) -> str:
     """
     Build Gmail search query with optional date filters.
-
     If neither after nor before is provided, returns the default query from config.
-    If date filters are given, constructs a new query with them.
-
     Date format: YYYY/MM/DD (Gmail API format)
     """
-    base_keywords = (
-        "subject:(application OR applied OR interview OR offer OR reject OR thank)"
-    )
-
     if not after and not before:
         return GMAIL_DEFAULT_QUERY
 
-    parts = [base_keywords]
+    parts = [GMAIL_SEARCH_KEYWORDS]
     if after:
         parts.append(f"after:{after}")
     if before:
