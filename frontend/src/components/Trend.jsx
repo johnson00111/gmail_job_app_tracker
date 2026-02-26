@@ -84,7 +84,7 @@ function BarItem({ label, ct, maxV, gran }) {
 }
 
 export default function Trend({ data }) {
-  const [gran, setGran] = useState("week");
+  const [gran, setGran] = useState("day");
 
   const grouped = useMemo(() => {
     const m = {};

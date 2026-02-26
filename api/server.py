@@ -5,12 +5,17 @@ FastAPI backend for Gmail JobTracker dashboard.
 
 from __future__ import annotations
 
+import threading
+import time
+
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import (
+    AUTO_SYNC_INTERVAL,
+    AUTO_SYNC_MAX,
     CORS_ORIGINS,
     GMAIL_DEFAULT_MAX_RESULTS,
     GMAIL_DEFAULT_QUERY,
@@ -29,7 +34,6 @@ from db.database import (
     get_unanalyzed_emails,
     get_weekly_trend,
     init_db,
-    toggle_action_done,
 )
 from gmail.fetcher import fetch_emails
 from llm.analyzer import analyze_all
@@ -45,6 +49,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================
+# Auto-sync background thread
+# ============================================================
+def auto_sync_loop():
+    """Background thread: fetch + analyze every few minutes."""
+    while True:
+        time.sleep(AUTO_SYNC_INTERVAL)
+        try:
+            print(f"\n{'=' * 60}")
+            print(
+                f"  Auto-sync triggered (every {AUTO_SYNC_INTERVAL // 60}min, max {AUTO_SYNC_MAX})"
+            )
+            print(f"{'=' * 60}\n")
+            new_count, skip_count = fetch_emails(
+                query=GMAIL_DEFAULT_QUERY, max_results=AUTO_SYNC_MAX
+            )
+            unanalyzed = len(get_unanalyzed_emails())
+            if unanalyzed > 0:
+                analyze_all()
+            print(
+                f"  Auto-sync done: {new_count} new, {skip_count} skipped, {unanalyzed} analyzed\n"
+            )
+        except Exception as e:
+            print(f"  Auto-sync error: {e}\n")
+
+
+_sync_thread = threading.Thread(target=auto_sync_loop, daemon=True)
+_sync_thread.start()
 
 
 # ============================================================
@@ -192,12 +226,3 @@ def api_analyze():
         return {"message": "No unanalyzed emails", "analyzed": 0}
     analyze_all()
     return {"analyzed": unanalyzed}
-
-
-@app.patch("/api/applications/{app_id}/action-done")
-def api_toggle_action_done(app_id: int):
-    """Toggle action_done status for an application."""
-    result = toggle_action_done(app_id)
-    if not result:
-        return {"error": "Application not found"}, 404
-    return result

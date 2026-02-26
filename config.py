@@ -42,6 +42,35 @@ GMAIL_DEFAULT_MAX_RESULTS = 100
 GMAIL_BODY_MAX_LENGTH = 5000  # truncate email body to avoid huge DB rows
 
 # ============================================================
+# Email Type Classification
+# ============================================================
+# Email types that represent actual job applications (creates/updates application records)
+# Add new types here when you add them to SYSTEM_PROMPT in prompts.py
+JOB_EMAIL_TYPES = {
+    "application_confirm",
+    "rejection",
+    "interview_invite",
+    "offer",
+    "action_needed",
+    "linkedin_applied",
+    "linkedin_rejected",
+    "recruiter_outreach",
+}
+
+# Map email_type → application status
+# Must cover all types in JOB_EMAIL_TYPES
+EMAIL_TYPE_TO_STATUS = {
+    "application_confirm": "applied",
+    "rejection": "rejected",
+    "interview_invite": "interview",
+    "offer": "offer",
+    "action_needed": "action_needed",
+    "linkedin_applied": "applied",
+    "linkedin_rejected": "rejected",
+    "recruiter_outreach": "applied",
+}
+
+# ============================================================
 # Ollama LLM
 # ============================================================
 OLLAMA_BASE_URL = os.getenv("JT_OLLAMA_URL", "http://localhost:11434")
@@ -67,3 +96,9 @@ CORS_ORIGINS = [
     "http://localhost:5173",  # Vite dev server
     "http://localhost:4173",  # Vite preview
 ]
+
+# ============================================================
+# Auto-sync
+# ============================================================
+AUTO_SYNC_INTERVAL = int(os.getenv("JT_AUTO_SYNC_INTERVAL", "300"))  # seconds (5 min)
+AUTO_SYNC_MAX = int(os.getenv("JT_AUTO_SYNC_MAX", "5"))  # max emails per cycle
