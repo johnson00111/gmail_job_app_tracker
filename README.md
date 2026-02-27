@@ -1,7 +1,7 @@
 # Gmail JobTracker
 
 <p align="center">
-  <img src="https://i.imgur.com/TABZwfh.jpeg" alt="Gmail JobTracker Logo" width="200">
+  <img src="https://i.imgur.com/TABZwfh.jpeg" alt="Gmail JobTracker Logo" width="500">
 </p>
 
 A full-stack application that automatically fetches job-related emails from Gmail, classifies them using a local LLM (Ollama), and presents insights through an interactive React dashboard.
