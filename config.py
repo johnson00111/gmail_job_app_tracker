@@ -34,8 +34,8 @@ GMAIL_SEARCH_KEYWORDS = (
     'OR "verify" OR "account" OR "newsletter")}'
 )
 
-# Default: search from Feb 2026 onward
-GMAIL_DEFAULT_AFTER = "2026/02/01"
+# Default: search from Aug 2025 onward
+GMAIL_DEFAULT_AFTER = "2025/08/01"
 GMAIL_DEFAULT_QUERY = f"{GMAIL_SEARCH_KEYWORDS} after:{GMAIL_DEFAULT_AFTER}"
 
 GMAIL_DEFAULT_MAX_RESULTS = 100
