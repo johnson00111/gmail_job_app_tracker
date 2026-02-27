@@ -81,6 +81,15 @@ function ActCard({ it, done, onToggle }) {
         }}>
           {it.action}
         </div>
+        {/* Show status badge when not action_needed */}
+        {it.status !== "action_needed" && (
+          <span style={{
+            fontSize: 10, color: "#78716c", background: "rgba(245,245,244,0.8)",
+            padding: "1px 8px", borderRadius: 4, marginTop: 4, display: "inline-block",
+          }}>
+            {it.status}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -114,7 +123,8 @@ function RBar({ role, ct, total, i }) {
 
 /* ===== Action Items Card ===== */
 export default function ActionItems({ data, onToggle }) {
-  const acts = useMemo(() => data.filter((d) => d.status === "action_needed"), [data]);
+  /* ← 改動：篩選有 action item 內容的，不限 status */
+  const acts = useMemo(() => data.filter((d) => d.action && d.action.trim()), [data]);
   const pending = useMemo(() => acts.filter((d) => !d.action_done), [acts]);
   const done = useMemo(() => acts.filter((d) => d.action_done), [acts]);
 

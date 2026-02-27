@@ -143,6 +143,7 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
   const [query, setQuery] = useState("");
+  const [actionFilter, setActionFilter] = useState("all");  /* ← 新增：action filter state */
 
   /* sort toggle */
   const handleSort = (col) => {
@@ -152,17 +153,28 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
 
   /* filter + sort */
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
     let list = data;
+
+    /* text search */
+    const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
         (r) => (r.company ?? "").toLowerCase().includes(q) || (r.role ?? "").toLowerCase().includes(q)
       );
     }
+
+    /* action item filter */
+    if (actionFilter === "has") {
+      list = list.filter((r) => r.action && r.action.trim());
+    } else if (actionFilter === "none") {
+      list = list.filter((r) => !r.action || !r.action.trim());
+    }
+
+    /* sort */
     const cmp = SORT_COLS[sortCol]?.fn ?? SORT_COLS.date.fn;
     const sorted = [...list].sort(cmp);
     return sortDir === "desc" ? sorted.reverse() : sorted;
-  }, [data, query, sortCol, sortDir]);
+  }, [data, query, actionFilter, sortCol, sortDir]);
 
   return (
     <GC style={{ padding: "28px 28px 20px" }}>
@@ -170,11 +182,11 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 10, color: T.primary, textTransform: "uppercase", letterSpacing: 3, fontWeight: 700 }}>Details</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#1c1917", marginTop: 4 }}>
-          All Applications{query && ` — ${rows.length} match${rows.length !== 1 ? "es" : ""}`}
+          All Applications{(query || actionFilter !== "all") && ` — ${rows.length} match${rows.length !== 1 ? "es" : ""}`}
         </div>
       </div>
 
-      {/* Status filter pills + Search */}
+      {/* Status filter pills + Action filter + Search */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {["all", ...STATUS_ORDER].map((s) => (
           <FBtn
@@ -185,6 +197,24 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
             onClick={() => onStatusFilter(s)}
           />
         ))}
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, background: "rgba(214,211,209,0.5)", margin: "0 4px" }} />
+
+        {/* Action item filter pills */}
+        <FBtn
+          label="Has Action"
+          active={actionFilter === "has"}
+          color="#dc2626"
+          onClick={() => setActionFilter((f) => f === "has" ? "all" : "has")}
+        />
+        <FBtn
+          label="No Action"
+          active={actionFilter === "none"}
+          color="#a8a29e"
+          onClick={() => setActionFilter((f) => f === "none" ? "all" : "none")}
+        />
+
         <div style={{ flex: 1 }} />
         <input
           type="text"
@@ -231,7 +261,7 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
         {/* Rows */}
         {rows.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#d6d3d1", background: "rgba(255,255,255,0.6)" }}>
-            {query ? "No matching applications" : "No results"}
+            {query || actionFilter !== "all" ? "No matching applications" : "No results"}
           </div>
         ) : (
           rows.map((row) => {
