@@ -46,7 +46,7 @@ function FBtn({ label, active, color, onClick }) {
 }
 
 /* ===== Expandable Row ===== */
-function ERow({ row, cfg, isOpen, toggle }) {
+function ERow({ row, cfg, isOpen, toggle, onToggle }) {
   const [h, setH] = useState(false);
   const [emails, setEmails] = useState(null);
   const [loadingEmails, setLoadingEmails] = useState(false);
@@ -88,8 +88,37 @@ function ERow({ row, cfg, isOpen, toggle }) {
             {cfg.label}
           </span>
         </span>
-        <span style={{ color: row.action ? "#dc2626" : "#d6d3d1", fontWeight: row.action ? 600 : 400, fontSize: 12 }}>
-          {row.action || "—"}
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {row.action && onToggle && (
+            <div
+              onClick={(e) => { e.stopPropagation(); onToggle(row.id); }}
+              style={{
+                width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
+                border: row.action_done ? "none" : "2px solid rgba(214,211,209,0.8)",
+                background: row.action_done
+                  ? "linear-gradient(135deg, #22c55e, #16a34a)"
+                  : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s",
+              }}
+            >
+              {row.action_done ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              ) : null}
+            </div>
+          )}
+          <span style={{
+            color: row.action
+              ? (row.action_done ? "#22c55e" : "#dc2626")
+              : "#d6d3d1",
+            fontWeight: row.action ? 600 : 400,
+            fontSize: 12,
+            textDecoration: row.action_done ? "line-through" : "none",
+          }}>
+            {row.action || "—"}
+          </span>
         </span>
         <span style={{ color: "#d6d3d1", fontSize: 16, transform: isOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.3s", textAlign: "center" }}>
           ▾
@@ -138,7 +167,7 @@ function ERow({ row, cfg, isOpen, toggle }) {
 }
 
 /* ===== Main Table ===== */
-export default function ApplicationTable({ data, total, statusFilter, onStatusFilter }) {
+export default function ApplicationTable({ data, total, statusFilter, onStatusFilter, onToggle }) {
   const [openRows, setOpenRows] = useState({});
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
@@ -273,6 +302,7 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
                 cfg={cfg}
                 isOpen={!!openRows[row.id]}
                 toggle={() => setOpenRows((p) => ({ ...p, [row.id]: !p[row.id] }))}
+                onToggle={onToggle}
               />
             );
           })

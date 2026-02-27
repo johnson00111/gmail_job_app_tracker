@@ -346,6 +346,7 @@ export default function App() {
           total={applications.length}
           statusFilter={statusFilter}
           onStatusFilter={setSf}
+          onToggle={handleToggleAction}
         />
       </div>
 
