@@ -112,7 +112,7 @@ def analyze_email(email: dict) -> dict | None:
         upsert_application(
             {
                 "company": result["company"],
-                "role": result.get("role") or "Unknown Role",
+                "role": result.get("role"),  # ← 改動：傳 None，由 upsert 處理
                 "status": status,
                 "action_item": result.get("action_item"),
                 "deadline": result.get("deadline"),

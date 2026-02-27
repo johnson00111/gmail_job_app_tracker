@@ -260,13 +260,20 @@ def upsert_application(app: dict, gmail_id: str, db_path=DB_PATH) -> int:
     """
     Insert or update an application record, and link the email.
     Returns the application id.
+
+    Role handling:
+      - If LLM returns a role → use it (already normalized by prompt)
+      - If LLM returns null   → use "{company} General" as fallback
     """
     conn = get_conn(db_path)
     c = conn.cursor()
 
+    company = app["company"]
+    role = app.get("role") or f"{company} General"  # ← 改動：None → "{Company} General"
+
     existing = c.execute(
         "SELECT id, current_status FROM applications WHERE company = ? AND role = ?",
-        (app["company"], app["role"]),
+        (company, role),
     ).fetchone()
 
     email_date = c.execute(
@@ -299,8 +306,8 @@ def upsert_application(app: dict, gmail_id: str, db_path=DB_PATH) -> int:
                (company, role, current_status, first_seen, last_updated, action_item, deadline, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                app["company"],
-                app["role"],
+                company,
+                role,
                 app["status"],
                 date_str,
                 date_str,

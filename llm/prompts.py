@@ -49,6 +49,25 @@ Rules:
 - For linkedin_applied, extract company and role from the subject/body
 - "status" should reflect the applicant's current state with that company
 - "confidence" is 0.0 to 1.0 indicating how confident you are
+- For "role": normalize the job title using these rules:
+  1. Title mapping (use the standardized name):
+     - "SDE", "SWE", "Software Dev", "Software Developer" → "Software Engineer"
+     - "ML Engineer", "MLE", "AI Engineer" → "Machine Learning Engineer"
+     - "DS" → "Data Scientist"
+     - "DE" → "Data Engineer"
+     - "PM" → "Product Manager" (not "Project Manager" unless explicitly stated)
+     - "FE Engineer", "Frontend Dev" → "Frontend Engineer"
+     - "BE Engineer", "Backend Dev" → "Backend Engineer"
+     - For titles not listed above, keep the original wording in a clean format
+  2. Level mapping — append ONLY if explicitly stated in the email:
+     - "Intern", "Internship", "Co-op", "Summer Intern", "Fall Intern", "Spring Intern", "Winter Intern" → append "Intern"
+     - "New Grad", "Early Career", "University Grad", "Recent Graduate", "Junior", "Associate", "Campus Hire", "Graduate Program", "Fresh Graduate", "Emerging Talent" → append "Entry Level"
+     - If no level is mentioned, do NOT append anything
+  3. Final format: "[Title]" or "[Title] [Level]"
+     - Examples: "Software Engineer", "Software Engineer Intern", "Data Scientist Entry Level"
+     - Do NOT include year, team name, or location in the role
+     - Do NOT invent a level — if the email just says "Software Engineer", output "Software Engineer"
+  4. If the email mentions a company but no specific role at all, set role to null
 - Return ONLY the JSON object, nothing else"""
 
 
