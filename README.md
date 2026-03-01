@@ -112,7 +112,53 @@ gmail-jobtracker/
 ```bash
 git clone https://github.com/johnson00111/gmail_job_app_tracker.git
 cd gmail_job_app_tracker
+```
 
+### Google OAuth Credentials Setup
+
+This project requires a Google OAuth 2.0 credentials file (`credentials.json`) to access the Gmail API. Follow the steps below to create one. It's completely free — no billing account or credit card required.
+
+#### Step 1: Create a Google Cloud Project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click the project selector at the top and select **New Project**
+3. Enter a project name (e.g. `JobTracker`) and click **Create**
+
+#### Step 2: Enable the Gmail API
+
+1. In your project, navigate to **APIs & Services → Library**
+2. Search for **Gmail API** and click on it
+3. Click **Enable**
+
+#### Step 3: Configure the OAuth Consent Screen
+
+1. Navigate to **Google Auth Platform → Branding**
+2. Fill in the following fields:
+   - **App name** — any name you like (e.g. `JobTracker`)
+   - **User support email** — your email address
+   - **Developer contact email** — your email address
+3. Click **Save**
+
+#### Step 4: Create OAuth Client ID
+
+1. Click **Create OAuth Client**
+2. Set **Application type** to **Desktop app**
+3. Enter any name (e.g. `JobTracker Client`) — this is just for your reference
+4. Click **Create**
+5. Click **Download JSON** to download the credentials file
+
+#### Step 5: Add Credentials to the Project
+
+1. Rename the downloaded file to `credentials.json`
+2. Move it to the project root directory:
+
+```bash
+cp /path/to/downloaded-file.json /path/to/gmail-jobtracker/credentials.json
+```
+
+> **Note:** On the first run, the app will open your browser for Google sign-in and authorization. After granting access, a `token.json` file will be generated automatically — you won't need to authorize again for future runs.
+
+```
 # Place your Google OAuth credentials file in the project root
 cp /path/to/credentials.json .
 
