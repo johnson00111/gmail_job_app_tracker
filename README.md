@@ -66,6 +66,7 @@ Gmail API  -->  FastAPI Backend  -->  Ollama (dual model)  -->  SQLite
 
 ```
 gmail-jobtracker/
+  credentials.json       # Required. See "Step 4: Create OAuth Client ID" below for how to obtain this file.
   config.py              # Centralized configuration (DB, Gmail, Ollama, CORS)
   main.py                # CLI entry point (--sync, --serve, --after, --before, --max)
   setup.sh               # One-time install script
@@ -107,14 +108,35 @@ gmail-jobtracker/
 - Ollama installed with two models: qwen2.5-coder:7b (classification) and qwen3:8b (chat)
 - Google Cloud project with Gmail API enabled and OAuth credentials
 
-### Setup
+### 1. Setup
 
 ```bash
 git clone https://github.com/johnson00111/gmail_job_app_tracker.git
 cd gmail_job_app_tracker
 ```
+### 2. Ollama Setup
 
-### Google OAuth Credentials Setup
+This project uses [Ollama](https://ollama.com/) to run local LLMs for email classification and AI chat. Two models are required, totaling approximately 9GB of disk space.
+
+#### Step 1: Installation
+
+1. Go to [ollama.com](https://ollama.com/) and download the installer for your OS
+2. **macOS:** Open the downloaded `.dmg` file and drag Ollama into the **Applications** folder, then launch it from Applications (a small icon will appear in the menu bar)
+3. **Windows / Linux:** Follow the installer instructions on the Ollama website
+
+#### Step 2: Pull the Required Models
+
+Once Ollama is running, open a terminal and pull the two models:
+
+```bash
+# Pull the Ollama models
+ollama pull qwen2.5-coder:7b    # For email classification
+ollama pull qwen3:8b             # For AI chat assistant
+```
+
+> **Note:** The models are managed by Ollama and stored in its own directory (`~/.ollama/` on macOS/Linux). You do not need to place any model files in the project folder.
+
+### 3. Google OAuth Credentials Setup
 
 This project requires a Google OAuth 2.0 credentials file (`credentials.json`) to access the Gmail API. Follow the steps below to create one. It's completely free — no billing account or credit card required.
 
@@ -150,22 +172,26 @@ This project requires a Google OAuth 2.0 credentials file (`credentials.json`) t
 #### Step 5: Add Credentials to the Project
 
 1. Rename the downloaded file to `credentials.json`
-2. Move it to the project root directory:
+2. Move it to the project root directory (gmail_job_app_tracker/), at the same level as main.py and config.py
+
+macOS / Linux:
+```bash
+# Place your Google OAuth credentials file in the project root
+mv ~/Downloads/client_secret_XXXXX.json ~/path/to/gmail_job_app_tracker/credentials.json
+```
+Windows:
+Rename the downloaded file to credentials.json in File Explorer, then drag it into the `gmail_job_app_tracker` folder.
 
 ```bash
-cp /path/to/downloaded-file.json /path/to/gmail-jobtracker/credentials.json
+# Place your Google OAuth credentials file in the project root
+cp /path/to/downloaded-file.json /path/to/gmail_job_app_tracker/credentials.json
 ```
 
 > **Note:** On the first run, the app will open your browser for Google sign-in and authorization. After granting access, a `token.json` file will be generated automatically — you won't need to authorize again for future runs.
 
-```
-# Place your Google OAuth credentials file in the project root
-cp /path/to/credentials.json .
+### 4. Keep Setting up
 
-# Pull the Ollama models
-ollama pull qwen2.5-coder:7b
-ollama pull qwen3:8b
-
+```bash
 # Run setup (creates venv, installs Python + Node dependencies, runs checks)
 chmod +x setup.sh start.sh
 ./setup.sh
@@ -190,7 +216,7 @@ chmod +x setup.sh start.sh
 
 Open http://localhost:5173 to view the dashboard.
 
-### CLI
+### Command Line Interface
 
 ```bash
 # Full pipeline: fetch -> analyze -> start server
@@ -210,6 +236,61 @@ python main.py --sync --after 2026/02/01 --before 2026/02/15 --max 50
 
 Click the **Sync Now** button in the dashboard header to open the sync panel. You can specify a date range (After / Before) and max number of emails before starting. Progress is logged in the terminal, and a result banner appears in the UI when complete.
 
+### Troubleshooting
+
+##### `OSError: [Errno 48] Address already in use`
+
+A previous process is still occupying the port. Kill it and restart:
+
+```bash
+kill -9 $(lsof -ti :8000) 2>/dev/null
+kill -9 $(lsof -ti :8080) 2>/dev/null
+./start.sh --sync
+```
+
+##### `403 access_denied` — "App has not completed Google verification"
+
+Your Gmail address is not added as a test user. Go to [Google Cloud Console](https://console.cloud.google.com/):
+
+1. Navigate to **Google Auth Platform → Audience**
+2. Under **Test users**, click **Add users**
+3. Add your Gmail address and save
+
+Then delete the failed token and retry:
+
+```bash
+rm -f token.json
+./start.sh --sync
+```
+
+##### `HttpError 403` — "Gmail API has not been used in project … or it is disabled"
+
+The Gmail API is not enabled in your Google Cloud project.
+
+1. Go to **APIs & Services → Library** in [Google Cloud Console](https://console.cloud.google.com/)
+2. Search for **Gmail API** and click **Enable**
+3. Wait 1–2 minutes for it to propagate, then retry
+
+##### `ModuleNotFoundError: No module named 'httpx'` (or other missing modules)
+
+A Python dependency is missing. Install it inside the virtual environment:
+
+```bash
+source venv/bin/activate
+pip install httpx
+```
+
+Replace `httpx` with whatever module name is shown in the error. **Do not** `pip install config` — the `config` module in this project refers to the local `config.py` file, not a PyPI package.
+
+##### `ModuleNotFoundError: No module named 'config'`
+
+This happens when running scripts directly (e.g. `python3 gmail/auth.py`). Always run the project from the root directory using:
+
+```bash
+python3 main.py --serve
+# or
+./start.sh --sync
+```
 ---
 
 ## API Endpoints
