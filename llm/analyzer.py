@@ -1,22 +1,16 @@
 """
 llm/analyzer.py
-Analyze emails using local Ollama LLM and store results in database.
+Analyze emails using LLM (Gemini-first, Ollama-fallback) and store results in database.
 """
 
 from __future__ import annotations
 
 import json
-
-import requests
+import time
 
 from config import (
     EMAIL_TYPE_TO_STATUS,
     JOB_EMAIL_TYPES,
-    LLM_NUM_PREDICT_ANALYZE,
-    LLM_TEMPERATURE,
-    LLM_TIMEOUT_ANALYZE,
-    OLLAMA_GENERATE_URL,
-    OLLAMA_MODEL_ANALYZE,
 )
 from db.database import (
     get_unanalyzed_emails,
@@ -24,33 +18,22 @@ from db.database import (
     upsert_application,
 )
 from llm.prompts import SYSTEM_PROMPT, build_user_prompt
+from llm.provider import llm
 
 
-def call_ollama(email: dict) -> dict | None:
+def call_llm(email: dict) -> dict | None:
     """
-    Send an email to Ollama for analysis.
+    Send an email to LLM for analysis (Gemini-first, Ollama-fallback).
     Returns parsed JSON dict or None on failure.
     """
-    user_prompt = build_user_prompt(email)
+    raw = llm.generate(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=build_user_prompt(email),
+    )
+    if not raw:
+        return None
 
     try:
-        resp = requests.post(
-            OLLAMA_GENERATE_URL,
-            json={
-                "model": OLLAMA_MODEL_ANALYZE,
-                "prompt": user_prompt,
-                "system": SYSTEM_PROMPT,
-                "stream": False,
-                "options": {
-                    "temperature": LLM_TEMPERATURE,
-                    "num_predict": LLM_NUM_PREDICT_ANALYZE,
-                },
-            },
-            timeout=LLM_TIMEOUT_ANALYZE,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("response", "")
-
         # Clean up: strip markdown fences if present
         raw = raw.strip()
         if raw.startswith("```"):
@@ -68,18 +51,9 @@ def call_ollama(email: dict) -> dict | None:
 
         return json.loads(raw[start:end])
 
-    except requests.exceptions.ConnectionError:
-        print("    ERROR: Cannot connect to Ollama. Is it running? (ollama serve)")
-        return None
-    except requests.exceptions.Timeout:
-        print("    ERROR: Ollama request timed out")
-        return None
     except json.JSONDecodeError as e:
         print(f"    ERROR: Failed to parse JSON: {e}")
         print(f"    Raw response: {raw[:200]}")
-        return None
-    except Exception as e:
-        print(f"    ERROR: {e}")
         return None
 
 
@@ -88,7 +62,7 @@ def analyze_email(email: dict) -> dict | None:
     Analyze a single email: call LLM, store analysis, update application.
     Returns the analysis dict or None on failure.
     """
-    result = call_ollama(email)
+    result = call_llm(email)
     if not result:
         return None
 
@@ -102,7 +76,7 @@ def analyze_email(email: dict) -> dict | None:
         "deadline": result.get("deadline"),
         "summary": result.get("summary"),
         "confidence": result.get("confidence"),
-        "model_used": OLLAMA_MODEL_ANALYZE,
+        "model_used": llm.last_provider,
     }
     insert_analysis(analysis)
 
@@ -112,7 +86,7 @@ def analyze_email(email: dict) -> dict | None:
         upsert_application(
             {
                 "company": result["company"],
-                "role": result.get("role"),  # ← 改動：傳 None，由 upsert 處理
+                "role": result.get("role"),
                 "status": status,
                 "action_item": result.get("action_item"),
                 "deadline": result.get("deadline"),
@@ -133,7 +107,9 @@ def analyze_all():
         print("No unanalyzed emails found.")
         return
 
-    print(f"Analyzing {total} emails with {OLLAMA_MODEL_ANALYZE}...\n")
+    # Show which provider is active
+    provider_name = "Gemini → Ollama" if llm.gemini.available else "Ollama (local)"
+    print(f"Analyzing {total} emails with [{provider_name}]...\n")
 
     success = 0
     fail = 0
@@ -148,11 +124,16 @@ def analyze_all():
             t = result.get("email_type", "?")
             c = result.get("company") or ""
             s = result.get("status") or ""
-            print(f"    → {t} | {c} | {s}")
+            p = llm.last_provider
+            print(f"    → {t} | {c} | {s}  [{p}]")
             success += 1
         else:
             print("    → FAILED")
             fail += 1
+
+        # Avoid hitting Gemini rate limit (free tier: ~15 RPM)
+        if llm.gemini.available and i < total:
+            time.sleep(4)
 
     print(f"\nDone. {success} analyzed, {fail} failed.")
 

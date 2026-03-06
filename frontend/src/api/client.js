@@ -20,7 +20,7 @@ export const getWeekly = () => request("/api/weekly");
 export const getActions = () => request("/api/actions");
 export const getFilters = () => request("/api/filters");
 
-// Sync — fetch Gmail + analyze with Ollama
+// Sync — fetch Gmail + analyze
 export const syncEmails = ({ after, before, maxResults } = {}) => {
   const body = {};
   if (after) body.after = after;
@@ -47,9 +47,71 @@ export const updateApplicationStatus = (appId, status) =>
     body: JSON.stringify({ status }),
   });
 
-// AI Insight — chat with Ollama via backend
+// AI Chat — blocking (fallback)
 export const chatAI = (message) =>
   request("/api/chat", {
     method: "POST",
     body: JSON.stringify({ message }),
   });
+
+/**
+ * AI Chat — streaming via SSE.
+ * Calls onToken(text, provider) for each chunk, onDone() when complete.
+ * Returns an abort controller so the caller can cancel the stream.
+ */
+export function chatAIStream(message, { onToken, onDone, onError }) {
+  const controller = new AbortController();
+
+  fetch(`${BASE}/api/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.error) {
+              onError?.(new Error(data.error));
+              return;
+            }
+            if (data.done) {
+              onDone?.();
+              return;
+            }
+            if (data.token) {
+              onToken?.(data.token, data.provider);
+            }
+          } catch {
+            // skip malformed JSON lines
+          }
+        }
+      }
+      // Stream ended without explicit done event
+      onDone?.();
+    })
+    .catch((err) => {
+      if (err.name !== "AbortError") {
+        onError?.(err);
+      }
+    });
+
+  return controller;
+}

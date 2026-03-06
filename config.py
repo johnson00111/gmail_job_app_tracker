@@ -6,6 +6,12 @@ All hardcoded values from other modules are collected here.
 
 from __future__ import annotations
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
 import os
 
 # ============================================================
@@ -83,10 +89,16 @@ OLLAMA_CHAT_URL = f"{OLLAMA_BASE_URL}/api/chat"  # for chat endpoint
 
 # LLM parameters
 LLM_TEMPERATURE = 0.1  # low temp for consistent classification
-LLM_NUM_PREDICT_ANALYZE = 512  # max tokens for email analysis
-LLM_NUM_PREDICT_CHAT = 300  # max tokens for chat responses
+LLM_NUM_PREDICT_ANALYZE = 1024  # max tokens for email analysis
+LLM_NUM_PREDICT_CHAT = 2048  # max tokens for chat responses
 LLM_TIMEOUT_ANALYZE = 120  # seconds, for single email analysis
 LLM_TIMEOUT_CHAT = 180  # seconds, for interactive chat
+
+# ============================================================
+# Gemini (Cloud LLM — optional, fallback to Ollama if not set)
+# ============================================================
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("JT_GEMINI_MODEL", "gemini-2.5-flash")
 
 # ============================================================
 # FastAPI / CORS

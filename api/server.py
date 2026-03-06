@@ -5,12 +5,13 @@ FastAPI backend for Gmail JobTracker dashboard.
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 
-import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from config import (
@@ -20,10 +21,6 @@ from config import (
     GMAIL_DEFAULT_MAX_RESULTS,
     GMAIL_DEFAULT_QUERY,
     GMAIL_SEARCH_KEYWORDS,
-    LLM_NUM_PREDICT_CHAT,
-    LLM_TIMEOUT_CHAT,
-    OLLAMA_CHAT_URL,
-    OLLAMA_MODEL_CHAT,
 )
 from db.database import (
     get_all_applications,
@@ -40,6 +37,7 @@ from db.database import (
 from gmail.fetcher import fetch_emails
 from llm.analyzer import analyze_all
 from llm.prompts import build_chat_context
+from llm.provider import llm
 
 # Initialize
 init_db()
@@ -89,7 +87,7 @@ _sync_thread.start()
 def build_query(after: str = None, before: str = None) -> str:
     """
     Build Gmail search query with optional date filters.
-    Date format from frontend: YYYY-MM-DD → converted to YYYY/MM/DD for Gmail.
+    Date format from frontend: YYYY-MM-DD -> converted to YYYY/MM/DD for Gmail.
     """
     if not after and not before:
         return GMAIL_DEFAULT_QUERY
@@ -143,7 +141,7 @@ def api_emails():
 
 
 # ============================================================
-# AI Chat endpoint
+# AI Chat endpoint — blocking (kept as fallback)
 # ============================================================
 class ChatRequest(BaseModel):
     message: str
@@ -151,35 +149,69 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 def api_chat(req: ChatRequest):
-    """Chat with Ollama using application data as context."""
+    """Blocking chat endpoint. Returns full response at once."""
     apps = get_all_applications()
     stats = get_stats()
     context = build_chat_context(apps, stats)
 
-    try:
-        resp = httpx.post(
-            OLLAMA_CHAT_URL,
-            json={
-                "model": OLLAMA_MODEL_CHAT,
-                "messages": [
-                    {"role": "system", "content": context},
-                    {"role": "user", "content": req.message},
-                ],
-                "stream": False,
-                "options": {"num_predict": LLM_NUM_PREDICT_CHAT},
-            },
-            timeout=LLM_TIMEOUT_CHAT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        reply = data.get("message", {}).get("content", "No response from model.")
-        return {"reply": reply}
-    except httpx.ConnectError:
-        return {
-            "reply": "⚠️ Cannot connect to Ollama. Make sure it's running on localhost:11434."
-        }
-    except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
+    messages = [
+        {"role": "system", "content": context},
+        {"role": "user", "content": req.message},
+    ]
+
+    reply = llm.chat(messages)
+    if reply is None:
+        raise HTTPException(status_code=503, detail="LLM unavailable")
+
+    return {
+        "reply": reply,
+        "provider": llm.last_provider,
+    }
+
+
+# ============================================================
+# AI Chat endpoint — streaming (SSE)
+# ============================================================
+@app.post("/api/chat/stream")
+def api_chat_stream(req: ChatRequest):
+    """
+    Streaming chat endpoint using Server-Sent Events.
+    Sends chunks as: data: {"token": "...", "provider": "gemini"}\n\n
+    Final event:     data: {"done": true}\n\n
+    """
+    apps = get_all_applications()
+    stats = get_stats()
+    context = build_chat_context(apps, stats)
+
+    messages = [
+        {"role": "system", "content": context},
+        {"role": "user", "content": req.message},
+    ]
+
+    def event_generator():
+        try:
+            for token in llm.chat_stream(messages):
+                payload = json.dumps(
+                    {
+                        "token": token,
+                        "provider": llm.last_provider,
+                    }
+                )
+                yield f"data: {payload}\n\n"
+            # Signal completion
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except Exception as e:
+            error_payload = json.dumps({"error": str(e)})
+            yield f"data: {error_payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ============================================================
