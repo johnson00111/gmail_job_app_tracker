@@ -13,6 +13,11 @@ const SORT_COLS = {
   company: { label: "Company",     w: "1.2fr", fn: (a, b) => (a.company ?? "").localeCompare(b.company ?? "") },
   role:    { label: "Role",        w: "130px", fn: (a, b) => (a.role ?? "").localeCompare(b.role ?? "") },
   status:  { label: "Status",      w: "100px", fn: (a, b) => statusRank(a.status) - statusRank(b.status) },
+  action:  { label: "Action Item", w: "1fr",   fn: (a, b) => {
+    // 未完成(0) → 無action(1) → 已完成(2)
+    const rank = (r) => r.action && r.action.trim() ? (r.action_done ? 2 : 0) : 1;
+    return rank(a) - rank(b);
+  }},
 };
 
 const GRID_COLS = "90px 1.2fr 130px 100px 1fr 36px";
@@ -232,7 +237,7 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
   const [query, setQuery] = useState("");
-  const [actionFilter, setActionFilter] = useState("all");  /* ← 新增：action filter state */
+  const [actionFilter, setActionFilter] = useState("all");
 
   /* sort toggle */
   const handleSort = (col) => {
@@ -257,6 +262,8 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
       list = list.filter((r) => r.action && r.action.trim());
     } else if (actionFilter === "none") {
       list = list.filter((r) => !r.action || !r.action.trim());
+    } else if (actionFilter === "pending") {
+      list = list.filter((r) => r.action && r.action.trim() && !r.action_done);
     }
 
     /* sort */
@@ -298,6 +305,12 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
           onClick={() => setActionFilter((f) => f === "has" ? "all" : "has")}
         />
         <FBtn
+          label="Pending"
+          active={actionFilter === "pending"}
+          color="#f59e0b"
+          onClick={() => setActionFilter((f) => f === "pending" ? "all" : "pending")}
+        />
+        <FBtn
           label="No Action"
           active={actionFilter === "none"}
           color="#a8a29e"
@@ -326,7 +339,7 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
       <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(245,245,244,0.8)" }}>
         {/* Sortable Header */}
         <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, padding: "12px 20px", background: "rgba(250,250,249,0.8)" }}>
-          {Object.entries(SORT_COLS).map(([key, { label }]) => (
+          {Object.entries(SORT_COLS).filter(([key]) => key !== "action").map(([key, { label }]) => (
             <span
               key={key}
               onClick={() => handleSort(key)}
@@ -340,9 +353,17 @@ export default function ApplicationTable({ data, total, statusFilter, onStatusFi
               {label}<SortArrow active={sortCol === key} dir={sortDir} />
             </span>
           ))}
-          {/* Action Item + arrow columns — not sortable */}
-          <span style={{ fontSize: 11, color: "#a8a29e", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>
-            Action Item
+          {/* Action Item — now sortable */}
+          <span
+            onClick={() => handleSort("action")}
+            style={{
+              fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8,
+              cursor: "pointer", userSelect: "none",
+              color: sortCol === "action" ? T.primary : "#a8a29e",
+              transition: "color 0.15s",
+            }}
+          >
+            Action Item<SortArrow active={sortCol === "action"} dir={sortDir} />
           </span>
           <span />
         </div>
